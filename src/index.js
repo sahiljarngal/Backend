@@ -2,10 +2,24 @@ import dotenv from "dotenv";
 // import mongoose from "mongoose";
 // import { DB_NAME } from "./constants.js";
 import connectDB from "./db/index.js";
+import app from "./app.js";
 dotenv.config({
   path: "./env",
 });
-connectDB();
+connectDB()
+  .then(() => {
+    app.on("error", (error) => {
+      console.log("Error : ", error);
+      throw error;
+    });
+    app.listen(process.env.PORT || 8000, () => {
+      console.log(`Server is connected on Port: ${process.env.PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.log(`MONGO DB failed to connect !! `, error);
+  });
+
 /*
 // this is direct method to connect database to backend
 import express from "express";
