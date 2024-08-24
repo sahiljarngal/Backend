@@ -1,3 +1,4 @@
+// multer is used for uploading files.
 import multer from "multer";
 // we use diskStorage
 const storage = multer.diskStorage({
@@ -5,6 +6,7 @@ const storage = multer.diskStorage({
     cb(null, "./public/temp");
   },
   filename: function (req, file, cb) {
+    // cb means callback function.
     cb(null, file.originalname);
   },
 });
