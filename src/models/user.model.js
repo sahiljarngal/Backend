@@ -53,7 +53,7 @@ const userSchema = new Schema(
 //  this middleware do something just before the save the data it encrypt the password in hash code by using this.password= bcrypt.hash(this.password, 10(this the total number  of times  to performing hashing on your password use select any no of times but more no will also decrease the performace so  use appropriate ))
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-  this.password = bcrypt.hash(this.password, 10);
+  this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 //  this custom method used to check the password entered is same as the actual method which is stored in DB very first in hashCode language this is time atken process thenit is we used asyn await
