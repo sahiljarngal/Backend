@@ -3,6 +3,21 @@ import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/Cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+const generateAccessAndRefereshTokens = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new ApiError(
+      500,
+      "Something went wrong while generating refersh and access token"
+    );
+  }
+};
 const registerUser = asyncHandler(async (req, res) => {
   // get user details from frontend
   // validation-not empty
@@ -103,4 +118,93 @@ const registerUser = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(200, createdUser, "User registered successfully ."));
 });
-export { registerUser };
+
+// for login use AsyncHandler because it make connection with database
+const loginUser = asyncHandler(async (req, res) => {
+  // req.body->data
+  // username or email
+  // find the user
+  // password check
+  // if password wrong the error
+  // access token and refresh token generate
+  // send cookie
+  // confirmation u login
+
+  // fromm req.body we get all this information of login in user
+  const { email, username, password } = req.body;
+  //  if username or email value blank by user throw error
+  if (!username || !email) {
+    throw new ApiError(400, "username or email is required");
+  }
+  //  then check username or email from data base if user input any of them
+
+  const user = await User.findOne({
+    $or: [{ username }, { email }],
+  });
+  //  if user with that email or username doesn't exist in database then give error
+  if (!user) {
+    throw new ApiError(404, "user doesn't exist");
+  }
+  //  check password by using is passwordCorrect method by sending curr input password andd it check with saved password.
+  const isPasswordValid = await user.isPasswordCorrect(password);
+  // if it is not match with existed one give error
+  if (!isPasswordValid) {
+    throw new ApiError(401, "Invalid user credentials");
+  }
+  //  after this if both match then generate access token and refresh token by using  respective method.
+  const { accessToken, refreshToken } = await generateAccessAndRefereshTokens(
+    user._id
+  );
+  //  send cookie by hiding password and refersh token
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
+  //  options help to lock boundires of cookies by checking httponly means cookie shows the http status, and secure help to readonly mode on means no one edit cookie from frontend
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+  //  return status code successful logged in send cookies with options. and json data which show status , and messages
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        {
+          user: loggedInUser,
+          accessToken,
+          refreshToken,
+        },
+        "User Logged In Successfully"
+      )
+    );
+});
+
+// to make function logoutuser need a middleware which help to get access of curr logged in user info
+const logoutUser = asyncHandler(async (req, res) => {
+  // here auth.middleware(custom made  middleware ) use and in routes of logged in user we use this verifyJWT middleware and insert user._id of currrent logged in user info so here we get all info current looged in user data and clear necessary data.
+
+  // use findByAndUpdate method of monogodb method in which we fin d the value and use$set operation to set new value.
+  User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: { refreshToken: undefined },
+    },
+    {
+      new: true,
+    }
+  );
+  // cookiee save in looged in
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+  return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "User logged out"));
+});
+export { registerUser, loginUser, logoutUser };
