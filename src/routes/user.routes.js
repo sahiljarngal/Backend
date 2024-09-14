@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   loginUser,
   logoutUser,
+  refershAccessToken,
   registerUser,
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
@@ -15,8 +16,9 @@ router.route("/register").post(
   registerUser
 );
 // here is route for logged in user
-route.route("/login").post(loginUser);
-// secured routes
+router.route("/login").post(loginUser);
 // here route of logout we insert middle bare before loginuser function so middle ware have access of user so they do alls their work (auth.middleware when next() method trigger from this middleware then logout user trigger)
+// secured routes
 router.route("/logout").post(verifyJWT, logoutUser);
+router.route("refresh-Token").post(refershAccessToken);
 export default router;
