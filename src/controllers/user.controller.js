@@ -1,7 +1,10 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
-import { uploadOnCloudinary } from "../utils/Cloudinary.js";
+import {
+  uploadOnCloudinary,
+  deleteFromCloudinary,
+} from "../utils/Cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
@@ -67,7 +70,7 @@ const registerUser = asyncHandler(async (req, res) => {
   if (existedUser) {
     throw new ApiError(409, "User is already exist.");
   }
-
+  console.log(req.files);
   // Step4: check for avatar, image
   const avatarLocalPath = req.files?.avatar[0]?.path;
   // const coverImageLocalPath = req.files?.coverImage[0]?.path;
@@ -134,6 +137,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
   // fromm req.body we get all this information of login in user
   const { email, username, password } = req.body;
+  console.log(req.body);
   console.log(email);
   //  if username or email value blank by user throw error
   if (!username && !email) {
@@ -197,7 +201,7 @@ const logoutUser = asyncHandler(async (req, res) => {
   User.findByIdAndUpdate(
     req.user._id,
     {
-      $set: { refreshToken: undefined },
+      $unset: { refreshToken: 1 },
     },
     {
       new: true,
@@ -299,6 +303,15 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   if (!avatarLocalPath.url) {
     throw new ApiError(400, "Error while uploading on avatar");
   }
+  // Delete old avatar from 302 to 310 ..
+  const oldavatar = await User.findById(req.user?._id);
+  const oldUrl = await oldavatar.avatar;
+  if (!oldUrl) {
+    throw new ApiError(400, "Not get old url of avatar");
+  } else {
+    deleteFromCloudinary(oldUrl);
+  }
+  //
   const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
@@ -396,13 +409,13 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
   if (!channel.length) {
     throw new ApiError(404, "channel does not exists");
   }
+  console.log(channel);
   return res
     .status(200)
     .json(
       new ApiResponse(200, channel[0], "User channel fetched successfully")
     );
 });
-console.log(channel);
 const getWatchHistory = asyncHandler(async (req, res) => {
   const user = await User.aggregate([
     {
@@ -423,13 +436,15 @@ const getWatchHistory = asyncHandler(async (req, res) => {
               localField: "owner",
               foreignField: "_id",
               as: "owner",
-              pipeline: {
-                $project: {
-                  fullName: 1,
-                  username: 1,
-                  avatar: 1,
+              pipeline: [
+                {
+                  $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1,
+                  },
                 },
-              },
+              ],
             },
           },
           {

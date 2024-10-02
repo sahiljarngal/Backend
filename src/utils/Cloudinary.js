@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
+import { ApiError } from "./ApiError.js";
 
 (async function () {
   // Configuration
@@ -28,4 +29,20 @@ const uploadOnCloudinary = async (localFilePath) => {
     return null;
   }
 };
-export { uploadOnCloudinary };
+// Delete old uploades avatar and coverimage
+const deleteFromCloudinary = async (imageUrl) => {
+  const publicId = imageUrl.split("/").slice(-2)[0];
+  console.log(publicId);
+  if (!publicId) {
+    throw new ApiError(400, "publicId is missing.");
+  }
+  await cloudinary.uploader.destroy(publicId, (error, result) => {
+    if (error) {
+      throw new ApiError(
+        500,
+        "existing file could not be deleted from cloudinary"
+      );
+    }
+  });
+};
+export { uploadOnCloudinary, deleteFromCloudinary };
